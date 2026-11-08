@@ -2,5 +2,7 @@ node_modules/
 private/
 *.bak
 *.BAK
+*.csv
+*.CSV
 !samples/*.bak
 dist/

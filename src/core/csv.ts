@@ -6,7 +6,7 @@
 // never written back; every byte not covered by a field or the name is left untouched.
 
 import { FIELDS } from './fields.ts';
-import { getField, getName, listRecords, setField, setName, recordOffset, RECORD_SIZE, type Bak } from './bak.ts';
+import { getDisplayName, getField, listRecords, setField, setName, recordOffset, RECORD_SIZE, type Bak } from './bak.ts';
 
 function quote(v: string): string {
   return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -76,7 +76,7 @@ export function applyCsv(bak: Bak, csvText: string): Change[] {
     const nameIdx = col('name');
     if (nameIdx >= 0) {
       const want = row[nameIdx] ?? '';
-      const have = getName(bak, slot);
+      const have = getDisplayName(bak, slot).name;
       if (want !== have) {
         setName(bak, slot, want);
         changes.push({ slot, column: 'name', from: have, to: want });

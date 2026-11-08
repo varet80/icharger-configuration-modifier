@@ -39,7 +39,7 @@ function main(argv: string[]): void {
       console.log(`records: ${bak.recordCount}, display order: [${bak.order.join(', ')}]`);
       for (const r of listRecords(bak)) {
         const vals = FIELDS.map((f) => `${f.key}=${getField(bak, r.slot, f).toFixed(f.decimals)}`).join(' ');
-        console.log(`#${r.slot} ${r.builtIn ? '[built-in]' : '[user]    '} ${r.name}\n    ${vals}`);
+        console.log(`#${r.slot} ${r.builtIn ? '[built-in]' : '[user]    '} ${r.name}${r.nameGuessed ? ' (first letter guessed)' : ''}\n    ${vals}`);
       }
       break;
     }

@@ -14,7 +14,10 @@ test('parses synthetic file', () => {
   assert.deepEqual(bak.order, [1, 0, 2]);
   const recs = listRecords(bak);
   assert.equal(recs[0]!.name, 'LiPo');
-  assert.equal(recs[1]!.name, 'iPo_test');
+  assert.equal(recs[1]!.name, 'LiPo_test'); // display guess
+  assert.equal(recs[1]!.nameGuessed, true);
+  assert.equal(getName(bak, 1), 'iPo_test'); // stored form
+  assert.equal(recs[0]!.nameGuessed, false);
   assert.equal(recs[1]!.builtIn, false);
   assert.equal(recs[0]!.builtIn, true);
   assert.equal(getField(bak, 2, FIELD_BY_KEY.get('battery_type')!), 2);
@@ -100,6 +103,19 @@ test('name editing keeps the missing-first-byte quirk', () => {
   setName(bak, 0, 'y'.repeat(29));
   assert.throws(() => setName(bak, 0, 'y'.repeat(30)), /longer/);
   assert.throws(() => setName(bak, 1, 'bad\u00e9'), /ASCII/);
+});
+
+test('guessed first letter is display-only', () => {
+  const orig = syntheticBak();
+  const bak = parseBak(orig);
+  const csv = exportCsv(bak);
+  assert.match(csv, /LiPo_test/);
+  assert.equal(applyCsv(bak, csv).length, 0); // untouched name is not rewritten
+  same(bak.bytes, orig);
+  const renamed = parseBak(orig);
+  assert.equal(applyCsv(renamed, csv.replace('LiPo_test', 'LiPo_new')).length, 1);
+  assert.equal(listRecords(renamed)[1]!.name, 'LiPo_new');
+  assert.equal(renamed.bytes[0x1300 + 3], 0x4c); // an edited name keeps its real 'L'
 });
 
 test('csv import applies edits and rejects bad values', () => {

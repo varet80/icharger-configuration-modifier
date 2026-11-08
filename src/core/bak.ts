@@ -18,7 +18,8 @@ export interface MemoryRecord {
   offset: number; // absolute file offset of the record
   marker: number;
   builtIn: boolean;
-  name: string;
+  name: string; // display name; may start with a guessed 'L' (see getDisplayName)
+  nameGuessed: boolean;
 }
 
 export interface Bak {
@@ -73,6 +74,19 @@ export function getName(bak: Bak, slot: number): string {
   return s;
 }
 
+// The charger's backup drops the first letter of many short user names: the byte is 0x00
+// and the real letter is not stored anywhere (e.g. "LiPo_1.2Ah" is saved as "iPo_1.2Ah").
+// For display only, names that then start with the tail of a lithium type get the missing 'L' back.
+// This never changes file bytes: setName() and the CSV import only write names the user edited.
+const LOST_L_TAILS = ['iPo', 'iIo', 'iFe', 'iHV'];
+
+export function getDisplayName(bak: Bak, slot: number): { name: string; guessed: boolean } {
+  const stored = getName(bak, slot);
+  const lost = bak.bytes[recordOffset(slot) + 2] === 0;
+  if (lost && LOST_L_TAILS.some((t) => stored.startsWith(t))) return { name: 'L' + stored, guessed: true };
+  return { name: stored, guessed: false };
+}
+
 export function setName(bak: Bak, slot: number, name: string): void {
   assertSlot(bak, slot);
   if (!/^[\x20-\x7e]*$/.test(name)) throw new Error('Name must be printable ASCII');
@@ -89,7 +103,8 @@ export function listRecords(bak: Bak): MemoryRecord[] {
   for (let slot = 0; slot < bak.recordCount; slot++) {
     const offset = recordOffset(slot);
     const marker = bak.bytes[offset]! | (bak.bytes[offset + 1]! << 8);
-    out.push({ slot, offset, marker, builtIn: marker !== USER_MARKER, name: getName(bak, slot) });
+    const { name, guessed } = getDisplayName(bak, slot);
+    out.push({ slot, offset, marker, builtIn: marker !== USER_MARKER, name, nameGuessed: guessed });
   }
   return out;
 }
