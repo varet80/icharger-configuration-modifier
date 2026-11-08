@@ -1,83 +1,83 @@
 # Known and unknown DX8 memory settings
 
-Status as of 2026-11-08. Offsets are inside one 256-byte memory record.
+Status as of 2026-11-08. Setting names and ranges are from the DX8 English manual 1.0.2 (`icharger dx8 en manual.pdf`), LiPo/LiIo/LiFe/LiHV/LTO/User memories. Offsets are inside one 256-byte memory record; 16-bit values can sit at odd offsets.
 
-**Important:** the setting names below follow the usual iCharger menu layout (Charge, Discharge, Storage, Cycle, Balance, advanced options). Compare them with the menus on your own DX8 and fix this list where they differ. Everything marked "hint" is a guess from how bytes vary between memories, not a result.
+Confidence: **diff** = confirmed by changing it on the charger; **default** = the byte holds exactly the manual's default in the built-in memories (strong hint, not proof); **hint** = a guess from how bytes vary.
 
-## Mapped (used by the tool)
+## Mapped (in `src/core/fields.ts`)
 
-| Setting | Offset | Confidence | Evidence |
+| Menu | Setting | Offset | Evidence |
 |---|---|---|---|
-| Battery type | +0x3D | high | built-in slots 0..9 hold 0..9 |
-| Capacity | +0x28 | high | matches names (1200, 5600, 800 mAh) |
-| Cell count (0 = auto) | +0x3E | medium | diffs: 3S -> 3, 8S -> 8, Auto -> 0 |
-| Full charge V/cell (LiPo) | +0x50 | high | 4200 default |
-| Storage V/cell (LiPo) | +0x56 | high | 3850 default; 3800 in the custom memory |
-| Discharge cut-off V/cell | +0x5C | medium | matches 3200/3000/3300 in memory names/values |
-| Charge current | +0x62 | high | matches names (1.8 A, 8.9 A, 0.5 A) |
-| Discharge current | +0x64 | high | matches names (2 A, 11.2 A, 0.3 A) |
-| Run counter | +0x3B low nibble | medium | one diff: 0 -> 12 |
-| Regen discharge | +0x3B high nibble | medium | memory named `regen_i` holds 1 |
-| Log interval | +0x39 | medium | one diff: 1.0 s -> 1.5 s = 0x0A -> 0x0F |
-| Balance start (below CV) | +0x48 | medium | one diff: 0.2 V -> 0.1 V = 2 -> 1 (read-only in the tool) |
+| Setup | Battery type | +0x3D | built-in slots hold 0..9 |
+| Setup | Cells (Auto, 1-8S) | +0x3E | diff: 3S, 8S, Auto |
+| Setup | Capacity (Ignore, 50-999900 mAh) | +0x28 (4 bytes) | matches memory names |
+| Option | Run counter (0-999) | +0x3B (2 bytes) | diff: 0 -> 12 |
+| Option | Log interval (0.5-60 s) | +0x39 (2 bytes) | diff: 1.0 -> 1.5 s; built-ins hold the 1 s default |
+| Charge | Chg current (0.05-30 A) | +0x62 | matches names |
+| Charge | Chg cell volt (LiPo 3.85-4.35 V) | +0x50 | default 4.2 V |
+| Charge | Chg end current (1-50 %) | +0x66 | default 10 %; 1 and 2 in memories with 0.1 A / 0.5 A |
+| Charge | Balance start (CV, CV-0.1..1 V, Always) | +0x48 | diff: CV-0.2 -> CV-0.1; built-ins hold the CV-0.2 default. Read-only |
+| Storage | Storage cell volt (LiPo 3.7-3.9 V) | +0x56 | default 3.85 V |
+| Discharge | Discharge current (0.05-30 A) | +0x64 | matches names |
+| Discharge | Discharge volt (LiPo 3.0-4.1 V) | +0x5C | default 3.5 V |
+| Discharge | End current (1-100 %) | +0x68 | default: built-ins hold 50. Read-only |
+| Charge safety | Max capacity (50-200 %), Cut-Temp (20-80 C), Safety timer | +0x8F, +0x91, +0x93 | default: 120 %, 45 C, off. Read-only |
+| Discharge safety | Max capacity, Cut-Temp | +0x95, +0x97 | default: 90 %, 45 C. Read-only |
+| Charge advanced | Restore lowest voltage (0.5-2.5 V) | +0x82 | default 1.0 V (custom memory holds 0.5 V). Read-only |
 
-## Unknown, by menu group
+## Not mapped yet
 
-For each: what to change on the charger, and any hint from the current backups.
+Test column = what to change on the charger, one setting per backup (or several at once with distinct values, see the end).
 
 ### Charge
-| Setting | Hint | Test |
+| Setting (manual range, default) | Hint | Test |
 |---|---|---|
-| Charge end current (%) | +0x66 holds 10 normally, 1 and 2 in the two memories named 0.1 A / 0.5 A | change it, save |
-| Charge mode (balance / non-balance) | not at +0x3E. Candidates: +0x41 (1 only in the two `1s` memories), +0x4F | toggle only this |
-| Safety timer | unknown | set to e.g. 77 min |
-| Safety capacity (% of nominal) | maybe +0x9A/+0x9C area; factory LiPo holds 36500 | set to e.g. 123 % |
-| Charge delay / max capacity limit | +0x9A holds 12000 (= 120 %?) | change, save |
-| Trickle / keep charging | unknown | toggle |
-
-### Discharge
-| Setting | Hint | Test |
-|---|---|---|
-| Discharge end current | unknown | change, save |
-| Discharge delay | unknown | change, save |
-| Discharge safety timer / capacity | unknown | change, save |
+| Chg Mode: Slow / Normal / Fast / User Balance / Not Balance (default Normal) | +0x4F = 1 only in the custom 1.2 Ah memory (slow balance); +0x41 = 1 in the two "Unbal" memories | switch to Fast, then to Not Balance |
+| Balance Diff (1-10 mV, 5), Balance Set Point (1-50 mV, 5), Balance Over Charge (0-50 mV, 0), Balance Done Delay (0-20 min, 1) | +0x70..+0x76 hold 0, 5, 5, 1 in every memory (default) | User Balance, then change each to a distinct value |
+| Chg End Current "Set..." condition (4 balance-end rules) | unknown | change the rule |
+| Restore Charge Time (1-5 min, 3), Restore Charge Current (0.02-0.5 A, 0.1) | +0x6C / +0x6E hold 3 in every memory; +0x80 holds 2300 | set 5 min / 0.3 A |
+| Keep charging after the done | unknown | toggle |
 
 ### Storage
 | Setting | Hint | Test |
 |---|---|---|
-| Storage compensation / time | +0x57..+0x5D (voltage table neighbours) | change, save |
-| Storage charge/discharge current | unknown, may reuse charge/discharge current | change, save |
+| Storage Compensation (0-0.2 V, 0.01) | unknown | set 0.05 V |
+| Accelerated storage | unknown | toggle |
+
+### Discharge
+| Setting | Hint | Test |
+|---|---|---|
+| Regenerative Mode: OFF / To input / To channel | +0x6A is 1 in the `regen_i` memory (to input), 2 in the built-in LiPo | switch to To channel |
+| Channel regenerative: Channel Join, Voltage Limit (2-36.5 V, 12), Current Limit (0.05-30 A, 1) | unknown | set To channel, then change both limits |
+| Extra Discharge Enable, Balance Enable | unknown | toggle each |
+| Discharge Safety Timer | probably +0x99 | set 77 min |
 
 ### Cycle
 | Setting | Hint | Test |
 |---|---|---|
-| Cycle count | +0x8C is 0 in most memories, 4 in the custom 1.2 Ah memory and 5 in the `regen` memory | set to e.g. 7 |
-| Cycle mode (C>D, D>C, ...) | +0x8A is 3 in most memories and 10 in the custom 1.2 Ah memory | change, save |
-| Cycle delay | +0x82 is 1000 normally and 500 in the custom 1.2 Ah memory | set to e.g. 3 min |
+| Cycle Mode (7 options, default CHG>DCHG) | unknown | change |
+| Cycle Count (1-99, 3) | +0x6C holds 3 in every memory (also a Restore Time candidate) | set 7 |
+| Delay Time (0-9999 min, 3) | +0x8A holds 3, and 10 in the custom 1.2 Ah memory | set 11 |
 
-### Balance
+### Options and elsewhere
 | Setting | Hint | Test |
 |---|---|---|
-| Balance speed (slow / normal / fast) | +0x4F is 1 only in the custom 1.2 Ah memory, which you set to slow balance | switch to fast, save |
-| Balance set point (cell delta) | +0x68 / +0x6A | change, save |
-| Balance end / delay | +0x47 is 3 in the two `1s` memories | change, save |
+| Channel Mode (Async / Sync) | unknown | switch |
+| Auto save before the program runs | unknown | toggle |
+| Log save to SD card | unknown | toggle |
+| Show tick (memory shown in list) | unknown | toggle |
+| Display order of memories | order table at 0xA00 (decoded) | move one memory |
 
-### Temperature, resistance, other advanced
-| Setting | Hint | Test |
-|---|---|---|
-| Temperature cut-off | +0x9C / +0x9E area | change, save |
-| Internal resistance compensation | unknown | change, save |
-| Fan / sync / channel options | maybe in the global block (0x200..0x2B3) | change, save |
+### Bytes that differ between memories but are not mapped
++0x2C, +0x35, +0x41, +0x42, +0x47, +0x4F, +0x57, +0x5D, +0x6A, +0x6C, +0x83, +0x8A, +0x8C, +0x9A..+0x9F.
 
-## Bytes that differ between memories but are not mapped
-+0x2C, +0x35, +0x41, +0x42, +0x47, +0x4F, +0x57, +0x5D, +0x68, +0x6A, +0x6C, +0x82, +0x83, +0x8A, +0x8C, +0x8F, +0x9A..+0x9F.
-
-Values in the custom 1.2 Ah memory that stand out: +0x4F = 1 (others 0), +0x82 = 500 (others 1000), +0x8A = 10 (others 3), +0x8C = 4 (others 0), +0x8F = 0xC8 (others 0x78), +0x9F = 0x14 (others 0x0A). That memory has the most non-default settings, so these bytes are good first candidates.
+Custom 1.2 Ah memory values that stand out: +0x4F = 1, +0x8A = 10, +0x8C = 4, +0x9F = 0x14. That memory has the most non-default settings.
 
 ## Not decoded at all
-- Global settings block, 0x200..0x2B3 (180 bytes).
-- Header 0x00..0x4F. Byte 0x1B changed from 0 to 0x0F in every backup saved after a change on the charger; it may mirror the log interval.
-- A stray `A` at +0x14 in the name area of the custom 1.2 Ah memory.
+- Global settings block 0x200..0x2B3 (180 bytes). Probably the charger-wide menu (input limits, buzzer, language, calibration).
+- Header 0x00..0x4F. Byte 0x1B went from 0 to 0x0F after charger-side changes.
+- Other battery types (NiMH/NiCd, NiZn, Pb, Power) use different menus (reflex charge, sensitivity, trickle, ...). Only the shared fields are mapped.
+- Voltage tables for LiIo, LiFe, LiHV, LTO inside each record are read but not exposed.
 
 ## Faster way to find many settings at once
-Make one extra memory and give each setting a different, odd value that no other setting uses, for example safety timer 77, cycle count 7, cycle delay 3, safety capacity 123, end current 17. Save one backup. Each value then shows up as a distinct byte, so many settings are identified from one file. Safety-relevant ones should still get a one-setting follow-up before the tool is allowed to write them.
+Make one extra memory and give each setting a different odd value that no other setting uses, for example cycle count 7, cycle delay 11, safety timer 77, balance diff 4 mV, restore time 5 min. Save one backup. Each value then shows up as a distinct byte, so many settings are identified from one file. Safety-related ones still get a one-setting check before the tool is allowed to write them.

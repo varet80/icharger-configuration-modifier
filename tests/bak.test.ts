@@ -19,7 +19,8 @@ test('parses synthetic file', () => {
   assert.equal(recs[0]!.builtIn, true);
   assert.equal(getField(bak, 2, FIELD_BY_KEY.get('battery_type')!), 2);
   assert.equal(getField(bak, 0, FIELD_BY_KEY.get('charge_current_A')!), 8.9);
-  assert.equal(getField(bak, 0, FIELD_BY_KEY.get('max_capacity_pct')!), 120);
+  assert.equal(getField(bak, 0, FIELD_BY_KEY.get('charge_max_capacity_pct')!), 120);
+  assert.equal(getField(bak, 0, FIELD_BY_KEY.get('charge_cut_temp_C')!), 45);
 });
 
 test('csv round trip without edits is byte-identical', () => {
@@ -39,19 +40,24 @@ test('editing one field changes only its bytes', () => {
   assert.ok(d.every((x) => x.offset >= 0x1300 + 0x28 && x.offset < 0x1300 + 0x2a));
 });
 
-test('nibble fields do not disturb each other', () => {
+test('multi-byte fields are little-endian and do not disturb neighbours', () => {
   const bak = parseBak(syntheticBak());
-  setField(bak, 0, 'regen_mode', 1);
-  assert.equal(bak.bytes[0x1200 + 0x3b], 0x12); // high nibble 1, low nibble (run counter) still 2
-  setField(bak, 0, 'run_counter', 12);
-  assert.equal(bak.bytes[0x1200 + 0x3b], 0x1c);
+  setField(bak, 0, 'run_counter', 300);
+  assert.equal(bak.bytes[0x1200 + 0x3b], 0x2c); // 300 = 0x012C
+  assert.equal(bak.bytes[0x1200 + 0x3c], 0x01);
+  assert.equal(bak.bytes[0x1200 + 0x3e], 3); // cells untouched
+  assert.throws(() => setField(bak, 0, 'run_counter', 1000), /outside allowed range/);
+  setField(bak, 0, 'capacity_mAh', 999900); // needs 4 bytes
+  assert.equal(getField(bak, 0, FIELD_BY_KEY.get('capacity_mAh')!), 999900);
+  assert.equal(bak.bytes[0x1200 + 0x2a], 0x0f); // 999900 = 0x000F4240
 });
 
 test('range checks and read-only fields are enforced', () => {
   const bak = parseBak(syntheticBak());
   assert.throws(() => setField(bak, 0, 'charge_current_A', 50), /outside allowed range/);
   assert.throws(() => setField(bak, 0, 'full_charge_mV', 9000), /outside allowed range/);
-  assert.throws(() => setField(bak, 0, 'charge_end_pct', 20), /read-only/);
+  assert.throws(() => setField(bak, 0, 'charge_end_pct', 60), /outside allowed range/);
+  assert.throws(() => setField(bak, 0, 'discharge_end_pct', 20), /read-only/);
   assert.throws(() => setField(bak, 5, 'capacity_mAh', 1), /out of range/);
   assert.throws(() => setField(bak, 0, 'nope', 1), /Unknown field/);
 });
@@ -65,6 +71,7 @@ test('verified settings from the 3S / 8S / options diffs', () => {
   assert.equal(bak.bytes[0x1200 + 0x3e], 0); // Auto
   assert.throws(() => setField(bak, 0, 'cells', 9), /outside allowed range/);
 
+  assert.throws(() => setField(bak, 0, 'log_interval_s', 0.4), /outside allowed range/);
   setField(bak, 0, 'log_interval_s', 1.5);
   assert.equal(bak.bytes[0x1200 + 0x39], 0x0f); // 1.5 s saved 0F at +0x39
   assert.equal(getField(bak, 0, FIELD_BY_KEY.get('log_interval_s')!), 1.5);
@@ -76,8 +83,10 @@ test('verified settings from the 3S / 8S / options diffs', () => {
 test('LiPo voltage slots are only editable on LiPo memories', () => {
   const bak = parseBak(syntheticBak());
   setField(bak, 0, 'full_charge_mV', 4150);
-  assert.throws(() => setField(bak, 2, 'full_charge_mV', 3550), /not a LiPo memory/);
-  assert.throws(() => setField(bak, 2, 'storage_mV', 3300), /not a LiPo memory/);
+  assert.throws(() => setField(bak, 2, 'full_charge_mV', 4000), /not a LiPo memory/);
+  assert.throws(() => setField(bak, 2, 'storage_mV', 3800), /not a LiPo memory/);
+  assert.throws(() => setField(bak, 2, 'discharge_cutoff_mV', 3500), /not a LiPo memory/);
+  assert.throws(() => setField(bak, 0, 'full_charge_mV', 3000), /outside allowed range/);
   assert.throws(() => setField(bak, 0, 'battery_type', 1), /read-only/);
 });
 

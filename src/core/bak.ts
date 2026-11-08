@@ -96,19 +96,17 @@ export function listRecords(bak: Bak): MemoryRecord[] {
 
 function readRaw(bytes: Uint8Array, abs: number, kind: FieldDef['kind']): number {
   switch (kind) {
+    case 'u32': return (bytes[abs]! | (bytes[abs + 1]! << 8) | (bytes[abs + 2]! << 16) | (bytes[abs + 3]! << 24)) >>> 0;
     case 'u16': return bytes[abs]! | (bytes[abs + 1]! << 8);
     case 'u8': return bytes[abs]!;
-    case 'nibLo': return bytes[abs]! & 0x0f;
-    case 'nibHi': return bytes[abs]! >> 4;
   }
 }
 
 function writeRaw(bytes: Uint8Array, abs: number, kind: FieldDef['kind'], raw: number): void {
   switch (kind) {
+    case 'u32': bytes[abs] = raw & 0xff; bytes[abs + 1] = (raw >>> 8) & 0xff; bytes[abs + 2] = (raw >>> 16) & 0xff; bytes[abs + 3] = (raw >>> 24) & 0xff; break;
     case 'u16': bytes[abs] = raw & 0xff; bytes[abs + 1] = (raw >> 8) & 0xff; break;
     case 'u8': bytes[abs] = raw & 0xff; break;
-    case 'nibLo': bytes[abs] = (bytes[abs]! & 0xf0) | (raw & 0x0f); break;
-    case 'nibHi': bytes[abs] = (bytes[abs]! & 0x0f) | ((raw & 0x0f) << 4); break;
   }
 }
 
@@ -162,7 +160,7 @@ export function describeOffset(offset: number, recordCount = MAX_MEMORIES): stri
     const tag = slot < recordCount ? '' : ' (beyond record count)';
     if (rel < 2) return `record ${slot}${tag}: marker`;
     if (rel < NAME_END) return `record ${slot}${tag}: name area (+0x${rel.toString(16)})`;
-    const f = FIELDS.find((d) => rel >= d.offset && rel < d.offset + (d.kind === 'u16' ? 2 : 1));
+    const f = FIELDS.find((d) => rel >= d.offset && rel < d.offset + (d.kind === 'u32' ? 4 : d.kind === 'u16' ? 2 : 1));
     return `record ${slot}${tag}: ${f ? f.key : 'UNMAPPED'} (+0x${rel.toString(16)})`;
   }
   return 'unused/erased area';

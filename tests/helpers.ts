@@ -13,9 +13,9 @@ export function syntheticBak(): Uint8Array {
     b[o] = marker & 0xff; b[o + 1] = marker >> 8;
     for (let i = 0; i < name.length; i++) b[o + nameAt + i] = name.charCodeAt(i);
     const u16 = (off: number, v: number) => { b[o + off] = v & 0xff; b[o + off + 1] = v >> 8; };
-    u16(0x28, 5600); b[o + 0x39] = 10; b[o + 0x3b] = 0x02; b[o + 0x3d] = 0; b[o + 0x3e] = 3; b[o + 0x3f] = 0; b[o + 0x48] = 2;
+    u16(0x28, 5600); b[o + 0x39] = 10; b[o + 0x3a] = 0; b[o + 0x3b] = 0x02; b[o + 0x3c] = 0; b[o + 0x3d] = 0; b[o + 0x3e] = 3; b[o + 0x3f] = 0; b[o + 0x48] = 2;
     u16(0x50, 4200); u16(0x56, 3850); u16(0x5c, 3300);
-    u16(0x62, 890); u16(0x64, 1120); u16(0x66, 10); u16(0x9a, 12000);
+    u16(0x62, 890); u16(0x64, 1120); u16(0x66, 10); u16(0x68, 50); u16(0x82, 1000); u16(0x8f, 120); u16(0x91, 450); u16(0x93, 0); u16(0x95, 90); u16(0x97, 450); u16(0x9a, 12000);
   };
   rec(0, 0x0000, 2, 'LiPo');
   rec(2, 0x0000, 2, 'LiFe');

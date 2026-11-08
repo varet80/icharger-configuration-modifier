@@ -20,6 +20,9 @@ node src/cli.ts diff   private/DX8_SAVE1.bak private/edited.bak
 - Values are range-checked. Low-confidence fields are read-only.
 - After restoring an edited file on the charger, check currents, voltages and cell count on its screen before connecting a battery.
 
+## Reference
+Setting names and ranges come from the DX8 English manual 1.0.2 (`icharger dx8 en manual.pdf`). What is mapped and what is still unknown: `docs/unknowns.md`.
+
 ## Tests
 ```
 npm test
