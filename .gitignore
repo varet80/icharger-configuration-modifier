@@ -1,0 +1,6 @@
+node_modules/
+private/
+*.bak
+*.BAK
+!samples/*.bak
+dist/
